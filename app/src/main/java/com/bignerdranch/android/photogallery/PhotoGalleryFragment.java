@@ -10,8 +10,10 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,6 +26,10 @@ public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "SERGI::PhotoGalleryFr";
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
+    private int pageNumber = 1;
+    private int pageNumberOld = 0;
+    private FetchItemsTask task;
+    private List<GalleryItem> mGalleryItems;
 
     public static PhotoGalleryFragment newInstance() {
         return new PhotoGalleryFragment();
@@ -33,7 +39,7 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        new FetchItemsTask().execute();
+        task = (FetchItemsTask) new FetchItemsTask().execute();
     }
 
     @Nullable
@@ -42,6 +48,27 @@ public class PhotoGalleryFragment extends Fragment {
         View v = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
         mPhotoRecyclerView = (RecyclerView) v.findViewById(R.id.fragment_photo_gallery_recycler_view);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(),3));
+        mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                //Toast.makeText(getActivity(),"dx : " + dx + "\ndn :" + dy, Toast.LENGTH_LONG).show();
+                GridLayoutManager gm = (GridLayoutManager) mPhotoRecyclerView.getLayoutManager();
+                int visibleItemCount = mPhotoRecyclerView.getChildCount();
+                int totalItemCount = gm.getItemCount();
+                int firstVisibleItem = gm.findFirstVisibleItemPosition();
+                int lastVisibleItem = gm.findLastVisibleItemPosition();
+                int lastItemThreshold = (Integer.valueOf(FlickrFetchr.PHOTOS_PER_PAGE)-1) * pageNumber;
+
+                //If we are in last position then we need to fetch next page
+                if (lastVisibleItem >= lastItemThreshold) {
+                    Toast.makeText(getActivity(),"Reached end of page !" + pageNumber, Toast.LENGTH_LONG).show();
+                    pageNumber = pageNumber + 1;
+                    task.cancel(true);
+                    task = (FetchItemsTask) new FetchItemsTask().execute();
+                }
+            }
+        });
         setupAdapter();
         return v;
     }
@@ -66,8 +93,6 @@ public class PhotoGalleryFragment extends Fragment {
     }
 
     private class PhotoAdapter extends RecyclerView.Adapter<PhotoHolder> {
-        private List<GalleryItem> mGalleryItems;
-
         public PhotoAdapter(List<GalleryItem> galleryItems) {
             mGalleryItems = galleryItems;
         }
@@ -96,7 +121,7 @@ public class PhotoGalleryFragment extends Fragment {
     private class FetchItemsTask extends AsyncTask<Void,Void,List<GalleryItem>> {
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-            return new FlickrFetchr().fetchItems();
+            return new FlickrFetchr().fetchItems(pageNumber);
         }
 
         @Override
@@ -105,6 +130,7 @@ public class PhotoGalleryFragment extends Fragment {
             setupAdapter();
         }
     }
+
 
 
 

@@ -2,10 +2,12 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
 android:layout_width="wrap_content"
 android:layout_height="wrap_content"
-android:layout_margin="20dp">
-<TextView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/list_item_photo_title"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
+android:layout_margin="2dp">
+<ImageView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/list_photo_gallery_image_view"
+    android:layout_width="match_parent"
+    android:layout_height="120dp"
+    android:layout_gravity="center"
+    android:scaleType="centerCrop"
     android:text="test"/>
 </FrameLayout>

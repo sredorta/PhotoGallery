@@ -27,7 +27,17 @@ import java.util.List;
 public class FlickrFetchr {
     private static final String TAG = "SERGI:FlickrFetchr";
     private static final String API_KEY ="ac13dca319e85342567b7ca58a42aaa4";
+    private static final String FETCH_RECENT_METHOD = "flickr.photos.getRecent";
+    private static final String SEARCH_METHOD = "flickr.photos.search";
     public static final String PHOTOS_PER_PAGE = "30";
+    private static final Uri ENDPOINT = Uri
+            .parse("https://api.flickr.com/services/rest/")
+            .buildUpon()
+            .appendQueryParameter("api_key", API_KEY)
+            .appendQueryParameter("format", "json")
+            .appendQueryParameter("nojsoncallback", "1")
+            .appendQueryParameter("extras", "url_s")
+            .build();
 
 
     //Get raw data from URL
@@ -57,21 +67,20 @@ public class FlickrFetchr {
         return new String(getURLBytes(urlSpec));
     }
 
+    public List<GalleryItem> fetchRecentPhotos(int pageNumber) {
+        String url = buildUrl(FETCH_RECENT_METHOD, null, pageNumber);
+        return downloadGalleryItems(url);
+    }
+
+    public List<GalleryItem> searchPhotos(String query, int pageNumber) {
+        String url = buildUrl(SEARCH_METHOD, query, pageNumber);
+        return downloadGalleryItems(url);
+    }
+
     //Use the Key to build valid URL
-    public List<GalleryItem> fetchItems(int pageNumber) {
+    public List<GalleryItem> downloadGalleryItems(String url) {
         List<GalleryItem> items = new ArrayList<>();
         try {
-            String url = Uri.parse("https://api.flickr.com/services/rest/")
-                    .buildUpon()
-                    .appendQueryParameter("method", "flickr.photos.getRecent")
-                    .appendQueryParameter("api_key", API_KEY)
-                    .appendQueryParameter("format", "json")
-                    .appendQueryParameter("nojsoncallback","1")
-                    .appendQueryParameter("extras", "url_s")
-                    .appendQueryParameter("per_page", PHOTOS_PER_PAGE)
-                    .appendQueryParameter("page", String.valueOf(pageNumber))
-                    .build()
-                    .toString();
             String jsonString = getURLString(url);
             Log.i(TAG, "Received JSON:" + jsonString);
             JSONObject jsonBody = new JSONObject(jsonString);
@@ -85,6 +94,19 @@ public class FlickrFetchr {
         }
         return items;
     }
+
+    //Build http string besed on method and query
+    private String buildUrl(String method, String query, int pageNumber) {
+        Uri.Builder uriBuilder = ENDPOINT.buildUpon()
+                .appendQueryParameter("method", method)
+                .appendQueryParameter("page", String.valueOf(pageNumber));
+        if (method.equals(SEARCH_METHOD)) {
+            uriBuilder.appendQueryParameter("text", query);
+        }
+        return uriBuilder.build().toString();
+    }
+
+
     //Parse JSON object
     private void parseItems(List<GalleryItem> items,JSONObject jsonBody) throws IOException, JSONException {
         JSONObject photosJsonObject = jsonBody.getJSONObject("photos");

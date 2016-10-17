@@ -11,8 +11,12 @@ import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
@@ -46,7 +50,8 @@ public class PhotoGalleryFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        task = (FetchItemsTask) new FetchItemsTask().execute();
+        setHasOptionsMenu(true);
+        task = updateItems();
         //Create the thumbnail downloader
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -87,7 +92,7 @@ public class PhotoGalleryFragment extends Fragment {
                     Toast.makeText(getActivity(),"Reached end of page !" + pageNumber, Toast.LENGTH_LONG).show();
                     pageNumber = pageNumber + 1;
                     task.cancel(true);
-                    task = (FetchItemsTask) new FetchItemsTask().execute();
+                    task = updateItems();
                 }
             }
         });
@@ -103,6 +108,56 @@ public class PhotoGalleryFragment extends Fragment {
         Log.i(TAG, "Background task destroyed");
     }
 
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.fragment_photo_gallery, menu);
+        MenuItem searchItem = menu.findItem(R.id.menu_item_search);
+        final SearchView searchview = (SearchView) searchItem.getActionView();
+
+        searchview.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String s) {
+                //Store on preferences the query
+                QueryPreferences.setStoredQuery(getActivity(),s);
+                pageNumber = 1;
+                //Update recycleView
+                task = updateItems();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+
+        searchview.setOnSearchClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                String query = QueryPreferences.getStoredQuery(getActivity());
+                searchview.setQuery(query,false);
+            }
+        });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.menu_item_clear:
+                QueryPreferences.setStoredQuery(getActivity(),null);
+                pageNumber = 1;
+                task = updateItems();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    private FetchItemsTask updateItems() {
+        String query = QueryPreferences.getStoredQuery(getActivity());
+        return (FetchItemsTask) new FetchItemsTask(query).execute();
+    }
     @Override
     public void onDestroyView() {
         super.onDestroyView();
@@ -158,9 +213,19 @@ public class PhotoGalleryFragment extends Fragment {
 
     //Get data from website
     private class FetchItemsTask extends AsyncTask<Void,Void,List<GalleryItem>> {
+        private String mQuery;
+
+        public FetchItemsTask(String query) {
+            mQuery = query;
+        }
+
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
-            return new FlickrFetchr().fetchItems(pageNumber);
+            if (mQuery == null) {
+                return new FlickrFetchr().fetchRecentPhotos(pageNumber);
+            } else {
+                return new FlickrFetchr().searchPhotos(mQuery,pageNumber);
+            }
         }
 
         @Override

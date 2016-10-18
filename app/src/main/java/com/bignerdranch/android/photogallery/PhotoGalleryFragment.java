@@ -1,5 +1,6 @@
 package com.bignerdranch.android.photogallery;
 
+import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
@@ -35,8 +36,6 @@ public class PhotoGalleryFragment extends Fragment {
     private static final String TAG = "SERGI::PhotoGalleryFr";
     private RecyclerView mPhotoRecyclerView;
     private List<GalleryItem> mItems = new ArrayList<>();
-    private int pageNumber = 1;
-    private int pageNumberOld = 0;
     private FetchItemsTask task;
     private List<GalleryItem> mGalleryItems;
     private ThumbnailDownloader<PhotoHolder> mThumbnailDownloader;
@@ -52,6 +51,10 @@ public class PhotoGalleryFragment extends Fragment {
         setRetainInstance(true);
         setHasOptionsMenu(true);
         task = updateItems();
+        //Start background service through an alarm
+        //Intent i = PollService.newIntent(getActivity());
+        //getActivity().startService(i);
+        //PollService.setServiceAlarm(getActivity(),true);  -> Use instead the menu
         //Create the thumbnail downloader
         Handler responseHandler = new Handler();
         mThumbnailDownloader = new ThumbnailDownloader<>(responseHandler);
@@ -73,24 +76,33 @@ public class PhotoGalleryFragment extends Fragment {
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_photo_gallery, container, false);
+        //Set pageNumber default
+        int pageNumber = 1;
+        QueryPreferences.setPageNumber(getActivity(),pageNumber);
+
         mPhotoRecyclerView = (RecyclerView) v.findViewById(R.id.fragment_photo_gallery_recycler_view);
         mPhotoRecyclerView.setLayoutManager(new GridLayoutManager(getActivity(),3));
         mPhotoRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
             public void onScrolled(RecyclerView recyclerView, int dx, int dy) {
                 super.onScrolled(recyclerView, dx, dy);
+                int pageNumber = QueryPreferences.getPageNumber(getActivity());
                 //Toast.makeText(getActivity(),"dx : " + dx + "\ndn :" + dy, Toast.LENGTH_LONG).show();
                 GridLayoutManager gm = (GridLayoutManager) mPhotoRecyclerView.getLayoutManager();
                 int visibleItemCount = mPhotoRecyclerView.getChildCount();
                 int totalItemCount = gm.getItemCount();
                 int firstVisibleItem = gm.findFirstVisibleItemPosition();
                 int lastVisibleItem = gm.findLastVisibleItemPosition();
-                int lastItemThreshold = (Integer.valueOf(FlickrFetchr.PHOTOS_PER_PAGE)-1) * pageNumber;
+                int lastItemThreshold = (Integer.valueOf(FlickrFetchr.PHOTOS_PER_PAGE)-1) * pageNumber ;
 
                 //If we are in last position then we need to fetch next page
                 if (lastVisibleItem >= lastItemThreshold) {
                     Toast.makeText(getActivity(),"Reached end of page !" + pageNumber, Toast.LENGTH_LONG).show();
-                    pageNumber = pageNumber + 1;
+
+                    //Store pageNumber in preferences
+                    pageNumber = QueryPreferences.getPageNumber(getActivity()) + 1;
+                    QueryPreferences.setPageNumber(getActivity(), pageNumber);
+
                     task.cancel(true);
                     task = updateItems();
                 }
@@ -120,7 +132,8 @@ public class PhotoGalleryFragment extends Fragment {
             public boolean onQueryTextSubmit(String s) {
                 //Store on preferences the query
                 QueryPreferences.setStoredQuery(getActivity(),s);
-                pageNumber = 1;
+                //Set that we need first page as we submit new query
+                QueryPreferences.setPageNumber(getActivity(), 1);
                 //Update recycleView
                 task = updateItems();
                 return true;
@@ -139,6 +152,13 @@ public class PhotoGalleryFragment extends Fragment {
                 searchview.setQuery(query,false);
             }
         });
+        //Handle menu item of alarm service
+        MenuItem toggleItem = (MenuItem) menu.findItem(R.id.menu_item_toggle_polling);
+        if (PollService.isServiceAlarmOn(getActivity())) {
+            toggleItem.setTitle(R.string.stop_polling);
+        } else {
+            toggleItem.setTitle(R.string.start_polling);
+        }
     }
 
     @Override
@@ -146,8 +166,13 @@ public class PhotoGalleryFragment extends Fragment {
         switch (item.getItemId()) {
             case R.id.menu_item_clear:
                 QueryPreferences.setStoredQuery(getActivity(),null);
-                pageNumber = 1;
+                //Set that we need first page as we submit new query
+                QueryPreferences.setPageNumber(getActivity(), 1);
                 task = updateItems();
+                return true;
+            case R.id.menu_item_toggle_polling:
+                boolean shouldStartAlarm = !PollService.isServiceAlarmOn(getActivity());
+                PollService.setServiceAlarm(getActivity(),shouldStartAlarm);
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -221,6 +246,7 @@ public class PhotoGalleryFragment extends Fragment {
 
         @Override
         protected List<GalleryItem> doInBackground(Void... params) {
+            int pageNumber = QueryPreferences.getPageNumber(getActivity());
             if (mQuery == null) {
                 return new FlickrFetchr().fetchRecentPhotos(pageNumber);
             } else {

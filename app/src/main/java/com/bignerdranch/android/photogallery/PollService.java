@@ -1,6 +1,8 @@
 package com.bignerdranch.android.photogallery;
 
+import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.DownloadManager;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
@@ -22,7 +24,12 @@ import java.util.List;
  */
 public class PollService extends IntentService {
     private static final String TAG = "SERGI::PollService";
-    private static final int POLL_INTERVAL = 1000*60*15; // 60 seconds
+    private static final int POLL_INTERVAL = 1000*60*1; // 60 seconds
+    public static final String ACTION_SHOW_NOTIFICATION = "com.bignerdranch.android.photogallery.SHOW_NOTIFICATION";
+    public static final String PERM_PRIVATE= "com.bignerdranch.android.photogallery.PRIVATE";
+    public static final String REQUEST_CODE ="REQUEST_CODE";
+    public static final String NOTIFICATION = "NOTIFICATION";
+
     public static Intent newIntent(Context context) {
         return new Intent(context, PollService.class);
     }
@@ -43,6 +50,7 @@ public class PollService extends IntentService {
             alarmManager.cancel(pi);
             pi.cancel();
         }
+        QueryPreferences.setAlarmOn(context,isOn);
     }
     // Check if alarm is active
     public static boolean isServiceAlarmOn(Context context) {
@@ -61,7 +69,7 @@ public class PollService extends IntentService {
         String lastResultId = QueryPreferences.getLastResultId(this);
         int pageNumber  = QueryPreferences.getPageNumber(this);
         List<GalleryItem> items;
-        Toast.makeText(this,"Get Alarm Intent", Toast.LENGTH_SHORT);
+        //Toast.makeText(this,"Get Alarm Intent", Toast.LENGTH_SHORT);
 
         if (query == null) {
             items = new FlickrFetchr().fetchRecentPhotos(pageNumber);
@@ -73,9 +81,11 @@ public class PollService extends IntentService {
         }
         String resultId = items.get(0).getId();
         if (resultId.equals(lastResultId)) {
+            Log.d(TAG, "No new reload needed !");
             //Toast.makeText(getApplicationContext(),"No new reload", Toast.LENGTH_SHORT).show();
             //Got an old result, no reload necessary
         } else {
+            Log.d(TAG, "Reload needed, send notification !");
              //Send notification that new data is there
             Resources resources = getResources();
             Intent i = PhotoGalleryActivity.newIntent(this);
@@ -88,11 +98,24 @@ public class PollService extends IntentService {
                     .setContentIntent(pi)
                     .setAutoCancel(true)
                     .build();
-            NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
-            notificationManager.notify(0,notification);
+            showBackgroundNotification(0, notification);
+
+            //NotificationManagerCompat notificationManager = NotificationManagerCompat.from(this);
+            //notificationManager.notify(0,notification);
+            //Send broadcast intent each time new data is available
+            //sendBroadcast(new Intent(ACTION_SHOW_NOTIFICATION), PERM_PRIVATE);
+
         }
         QueryPreferences.setLastResultId(this,resultId);
     }
+
+    private void showBackgroundNotification(int requestCode, Notification notification) {
+        Intent i = new Intent(ACTION_SHOW_NOTIFICATION);
+        i.putExtra(REQUEST_CODE, requestCode);
+        i.putExtra(NOTIFICATION, notification);
+        sendOrderedBroadcast(i, PERM_PRIVATE,null,null, Activity.RESULT_OK,null,null);
+    }
+
     //Check that network is available
     private boolean isNetworkAvailableAndConnected() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);

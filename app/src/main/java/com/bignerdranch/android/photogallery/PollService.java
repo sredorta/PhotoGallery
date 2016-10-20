@@ -24,7 +24,7 @@ import java.util.List;
  */
 public class PollService extends IntentService {
     private static final String TAG = "SERGI::PollService";
-    private static final int POLL_INTERVAL = 1000*60*1; // 60 seconds
+    private static final int POLL_INTERVAL = 1000*60*60; // 60 seconds
     public static final String ACTION_SHOW_NOTIFICATION = "com.bignerdranch.android.photogallery.SHOW_NOTIFICATION";
     public static final String PERM_PRIVATE= "com.bignerdranch.android.photogallery.PRIVATE";
     public static final String REQUEST_CODE ="REQUEST_CODE";

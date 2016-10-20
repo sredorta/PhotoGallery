@@ -1,5 +1,7 @@
 package com.bignerdranch.android.photogallery;
 
+import android.net.Uri;
+
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
@@ -17,6 +19,9 @@ public class GalleryItem {
 
     @SerializedName("url_s")
     private String mUrl;
+
+    @SerializedName("owner")
+    private String mOwner;
 
     @Override
     public String toString() {
@@ -46,6 +51,24 @@ public class GalleryItem {
     public void setUrl(String url) {
         mUrl = url;
     }
+
+    public String getOwner() {
+        return mOwner;
+    }
+
+    public void setOwner(String owner) {
+        mOwner = owner;
+    }
+
+    //Get web page of a photo
+    public Uri getPhotoPageUri() {
+        return Uri.parse("http://www.flickr.com/photos/")
+                .buildUpon()
+                .appendPath(mOwner)
+                .appendPath(mId)
+                .build();
+    }
+
     //Static method (only one per class) that parses JSon string to object
     public static GalleryItem parseJSON(String response) {
         Gson gson = new GsonBuilder().create();

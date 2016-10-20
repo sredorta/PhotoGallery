@@ -3,6 +3,7 @@ package com.bignerdranch.android.photogallery;
 import android.content.Context;
 import android.preference.Preference;
 import android.preference.PreferenceManager;
+import android.util.Log;
 
 /**
  * Created by sredorta on 10/17/2016.
@@ -31,10 +32,17 @@ public class QueryPreferences {
 
     //Get last pageNumber
     public static int getPageNumber(Context context) {
-        String return_string = PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_PAGE_NUMBER,null);
-        int return_value = (int) Integer.valueOf(return_string);
+        String s = PreferenceManager.getDefaultSharedPreferences(context).getString(PREF_PAGE_NUMBER,null);
+        int i;
+        Log.i("SERGI::DEBUG","Value for pageNumber" + s);
 
-        return return_value;
+        if (s == null) {
+            i = 1;
+        } else {
+            i = Integer.valueOf(s);
+        }
+
+        return i;
     }
     //Save last pageNumber
     public static void setPageNumber(Context context, int pageNumber) {
